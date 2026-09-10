@@ -13,7 +13,6 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
   const [previewIndex, setPreviewIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Если картинок нет, показываем плейсхолдер
   if (!images || images.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto px-4 py-8 text-center text-gray-400">
@@ -24,7 +23,6 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
 
   const currentImage = images[selectedIndex] || images[0];
 
-  // Навигация по основному изображению
   const goToPrevious = () => {
     setSelectedIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
@@ -33,17 +31,12 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
     setSelectedIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
-  // Открытие модального окна
   const openPreview = (index: number) => {
     setPreviewIndex(index);
     setIsPreviewOpen(true);
   };
 
-  const closePreview = () => {
-    setIsPreviewOpen(false);
-  };
-
-  // Автоматический скролл к выбранному превью
+  // ✅ Прокрутка миниатюры в центр при смене индекса
   useEffect(() => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
@@ -61,10 +54,15 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
     }
   }, [selectedIndex]);
 
+  // ✅ Обработчик клика по миниатюре — меняет индекс
+  const handleThumbnailClick = (index: number) => {
+    setSelectedIndex(index);
+  };
+
   return (
     <>
       <section className="w-full max-w-5xl mx-auto px-4 py-8">
-        {/* Основное изображение с навигацией */}
+        {/* Основное изображение */}
         <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-lg mb-4 bg-gray-100">
           <AnimatePresence mode="wait">
             <motion.img
@@ -80,7 +78,6 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
             />
           </AnimatePresence>
 
-          {/* Кнопки навигации */}
           {images.length > 1 && (
             <>
               <button
@@ -100,7 +97,6 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
             </>
           )}
 
-          {/* Кнопка увеличения */}
           <button
             onClick={() => openPreview(selectedIndex)}
             className="absolute bottom-4 right-4 p-2 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors backdrop-blur-sm"
@@ -109,13 +105,12 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
             <ZoomIn size={20} />
           </button>
 
-          {/* Счётчик */}
           <div className="absolute bottom-4 left-4 bg-black/50 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
             {selectedIndex + 1} / {images.length}
           </div>
         </div>
 
-        {/* Горизонтальная галерея превью с прокруткой */}
+        {/* ✅ Горизонтальная галерея миниатюр с прокруткой */}
         <div
           ref={scrollContainerRef}
           className="relative overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 pb-2"
@@ -128,7 +123,7 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
             {images.map((img, idx) => (
               <div
                 key={idx}
-                onClick={() => setSelectedIndex(idx)}
+                onClick={() => handleThumbnailClick(idx)}
                 className={`flex-shrink-0 w-24 h-20 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
                   idx === selectedIndex
                     ? "ring-2 ring-blue-500 ring-offset-2 shadow-lg scale-105"
@@ -151,7 +146,7 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
         </div>
       </section>
 
-      {/* Модальное окно для увеличенного просмотра */}
+      {/* Модальное окно */}
       <Dialog.Root open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" />
@@ -178,7 +173,6 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
                 </AnimatePresence>
               </div>
 
-              {/* Навигация в модалке */}
               {images.length > 1 && (
                 <>
                   <button

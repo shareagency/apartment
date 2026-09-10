@@ -8,11 +8,11 @@ import GalleryCarousel from "./components/GalleryCarousel";
 import CtaButton from "./components/CtaButton";
 import ContractLink from "./components/ContractLink";
 
-// Динамический импорт всех картинок из public/images
-// Добавляем as string[] чтобы TypeScript понял, что это массив строк
-const imageModules = import.meta.glob("/public/images/*.jpg", {
+// ✅ Новый синтаксис вместо as: 'url'
+const imageModules = import.meta.glob("./assets/images/*.jpg", {
   eager: true,
-  as: "url",
+  query: "?url",
+  import: "default",
 }) as Record<string, string>;
 const images: string[] = Object.values(imageModules);
 
