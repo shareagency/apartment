@@ -7,12 +7,25 @@ interface GalleryCarouselProps {
   images?: string[];
 }
 
+const SWIPE_THRESHOLD = 50; // порог свайпа по горизонтали (px)
+const SWIPE_DOWN_THRESHOLD = 100; // порог свайпа вниз для закрытия модалки
+
 const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Touch-состояние для основного изображения
+  const mainTouchStartXRef = useRef<number | null>(null);
+  const mainTouchStartYRef = useRef<number | null>(null);
+
+  // Touch-состояние для модалки
+  const previewTouchStartXRef = useRef<number | null>(null);
+  const previewTouchStartYRef = useRef<number | null>(null);
+
+  // Если картинок нет — показываем заглушку
   if (!images || images.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto px-4 py-8 text-center text-gray-400">
@@ -36,34 +49,105 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
     setIsPreviewOpen(true);
   };
 
-  // ✅ Прокрутка миниатюры в центр при смене индекса
+  // Автоматическая прокрутка превью к выбранной картинке
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      const container = scrollContainerRef.current;
-      const children = container.children;
-      if (children[selectedIndex]) {
-        const child = children[selectedIndex] as HTMLElement;
-        const containerWidth = container.clientWidth;
-        const childLeft = child.offsetLeft;
-        const childWidth = child.offsetWidth;
-        container.scrollTo({
-          left: childLeft - containerWidth / 2 + childWidth / 2,
-          behavior: "smooth",
-        });
-      }
-    }
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const children = container.children;
+    if (!children[selectedIndex]) return;
+
+    const child = children[selectedIndex] as HTMLElement;
+    const containerWidth = container.clientWidth;
+    const childLeft = child.offsetLeft;
+    const childWidth = child.offsetWidth;
+
+    container.scrollTo({
+      left: childLeft - containerWidth / 2 + childWidth / 2,
+      behavior: "smooth",
+    });
   }, [selectedIndex]);
 
-  // ✅ Обработчик клика по миниатюре — меняет индекс
-  const handleThumbnailClick = (index: number) => {
-    setSelectedIndex(index);
+  // --- Свайп по основному изображению ---
+  const handleMainTouchStart = (e: React.TouchEvent) => {
+    mainTouchStartXRef.current = e.touches[0].clientX;
+    mainTouchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleMainTouchEnd = (e: React.TouchEvent) => {
+    if (
+      mainTouchStartXRef.current === null ||
+      mainTouchStartYRef.current === null
+    )
+      return;
+
+    const deltaX = e.changedTouches[0].clientX - mainTouchStartXRef.current;
+    const deltaY = e.changedTouches[0].clientY - mainTouchStartYRef.current;
+
+    // Игнорируем вертикальные свайпы
+    if (Math.abs(deltaX) < Math.abs(deltaY)) {
+      mainTouchStartXRef.current = null;
+      mainTouchStartYRef.current = null;
+      return;
+    }
+
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+      if (deltaX < 0) goToNext();
+      else goToPrevious();
+    }
+
+    mainTouchStartXRef.current = null;
+    mainTouchStartYRef.current = null;
+  };
+
+  // --- Свайп в модалке (листание + закрытие свайпом вниз) ---
+  const handlePreviewTouchStart = (e: React.TouchEvent) => {
+    previewTouchStartXRef.current = e.touches[0].clientX;
+    previewTouchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handlePreviewTouchEnd = (e: React.TouchEvent) => {
+    if (
+      previewTouchStartXRef.current === null ||
+      previewTouchStartYRef.current === null
+    )
+      return;
+
+    const deltaX = e.changedTouches[0].clientX - previewTouchStartXRef.current;
+    const deltaY = e.changedTouches[0].clientY - previewTouchStartYRef.current;
+
+    // Закрытие свайпом вниз
+    if (deltaY > SWIPE_DOWN_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX)) {
+      setIsPreviewOpen(false);
+      previewTouchStartXRef.current = null;
+      previewTouchStartYRef.current = null;
+      return;
+    }
+
+    // Листание свайпом по горизонтали
+    if (
+      Math.abs(deltaX) > Math.abs(deltaY) &&
+      Math.abs(deltaX) > SWIPE_THRESHOLD
+    ) {
+      if (deltaX < 0) {
+        setPreviewIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+      } else {
+        setPreviewIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+      }
+    }
+
+    previewTouchStartXRef.current = null;
+    previewTouchStartYRef.current = null;
   };
 
   return (
     <>
       <section className="w-full max-w-5xl mx-auto px-4 py-8">
         {/* Основное изображение */}
-        <div className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-lg mb-4 bg-gray-100">
+        <div
+          className="relative w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-lg mb-4 bg-gray-100 select-none"
+          onTouchStart={handleMainTouchStart}
+          onTouchEnd={handleMainTouchEnd}
+        >
           <AnimatePresence mode="wait">
             <motion.img
               key={selectedIndex}
@@ -75,6 +159,7 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
               exit={{ opacity: 0, scale: 1.05 }}
               transition={{ duration: 0.3 }}
               onClick={() => openPreview(selectedIndex)}
+              draggable={false}
             />
           </AnimatePresence>
 
@@ -110,31 +195,36 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
           </div>
         </div>
 
-        {/* ✅ Горизонтальная галерея миниатюр с прокруткой */}
+        {/* Горизонтальная галерея превью */}
         <div
           ref={scrollContainerRef}
-          className="relative overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 pb-2"
+          className="relative overflow-x-auto overflow-y-hidden pb-2 select-none scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200"
           style={{
             scrollbarWidth: "thin",
             WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x",
+            overscrollBehaviorX: "contain",
+            scrollSnapType: "x mandatory",
           }}
         >
-          <div className="flex gap-3 w-max">
+          <div className="inline-flex gap-3 min-w-full">
             {images.map((img, idx) => (
               <div
                 key={idx}
-                onClick={() => handleThumbnailClick(idx)}
+                onClick={() => setSelectedIndex(idx)}
                 className={`flex-shrink-0 w-24 h-20 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
                   idx === selectedIndex
                     ? "ring-2 ring-blue-500 ring-offset-2 shadow-lg scale-105"
                     : "opacity-70 hover:opacity-100 hover:scale-105"
                 }`}
+                style={{ scrollSnapAlign: "center" }}
               >
                 <img
                   src={img}
                   alt={`Превью ${idx + 1}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover pointer-events-none"
                   loading="lazy"
+                  draggable={false}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = "/placeholder.jpg";
@@ -146,11 +236,16 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
         </div>
       </section>
 
-      {/* Модальное окно */}
+      {/* Модалка увеличенного просмотра */}
       <Dialog.Root open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <Dialog.Content
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none"
+            onTouchStart={handlePreviewTouchStart}
+            onTouchEnd={handlePreviewTouchEnd}
+            style={{ touchAction: "pan-x" }}
+          >
             <div className="relative max-w-6xl w-full max-h-[90vh] bg-black/20 rounded-xl overflow-hidden">
               <Dialog.Close asChild>
                 <button className="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors">
@@ -164,11 +259,12 @@ const GalleryCarousel: React.FC<GalleryCarouselProps> = ({ images = [] }) => {
                     key={previewIndex}
                     src={images[previewIndex] || images[0]}
                     alt={`Увеличенное фото ${previewIndex + 1}`}
-                    className="max-w-full max-h-[80vh] object-contain"
+                    className="max-w-full max-h-[80vh] object-contain pointer-events-none"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
+                    draggable={false}
                   />
                 </AnimatePresence>
               </div>

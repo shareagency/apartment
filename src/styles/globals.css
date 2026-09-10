@@ -46,3 +46,10 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+/* Улучшенный свайп для тач-устройств */
+.touch-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
